@@ -15,6 +15,7 @@ API_KEY = "40d1649f-0493-4b70-98ba-98533de7710b"
 class MapWindow(QWidget):
     def __init__(self):
         super().__init__()
+        self.resetSR = False
         self.z = 17
         self.sl = ["map", "sat", "sat,skl"]
         self.curr_s = 0
@@ -24,7 +25,8 @@ class MapWindow(QWidget):
         self.search("Курган")
 
     def search(self, request_text=None):
-        if not request_text:
+        self.resetSR = False
+        if request_text == None:
             request_text = self.search_text_area.text()
         if self.search_text_area.text() or request_text:
             params = {
@@ -34,18 +36,26 @@ class MapWindow(QWidget):
             }
             response = requests.get(GEOCODER_API, params=params).json()
             obj = response["response"]["GeoObjectCollection"]["featureMember"][0]
+            self.addres_line.setText(obj["GeoObject"]["metaDataProperty"]["GeocoderMetaData"]["Address"]["formatted"])
             coords = list(map(float, obj["GeoObject"]["Point"]["pos"].split()))
             self.coords = coords
             self.getImage()
             self.update_image()
 
     def getImage(self):
-        params = {
-            "ll": "{},{}".format(*self.coords),
-            "z": self.z,
-            "l": self.s,
-            "pt": f"{self.coords[0]},{self.coords[1]},pm2dol"
-        }
+        if self.resetSR:
+            params = {
+                "ll": "{},{}".format(*self.coords),
+                "z": self.z,
+                "l": self.s
+            }
+        else:
+            params = {
+                "ll": "{},{}".format(*self.coords),
+                "z": self.z,
+                "l": self.s,
+                "pt": f"{self.coords[0]},{self.coords[1]},pm2dol"
+            }
         response = requests.get(STATIC_API, params=params)
 
         if not response:
@@ -71,11 +81,17 @@ class MapWindow(QWidget):
 
         self.search_text_area = QLineEdit()
 
+        self.addres_line = QLineEdit()
+        self.addres_line.setReadOnly(True)
+
         self.search_button = QPushButton("Искать")
         self.search_button.pressed.connect(self.search)
 
         self.layer_button = QPushButton("Переключить слой")
         self.layer_button.clicked.connect(self.layer)
+
+        self.reset_button = QPushButton("Сброс поискового результата")
+        self.reset_button.clicked.connect(self.resetS)
 
         self.image = QLabel()
         self.image.move(0, 0)
@@ -84,6 +100,8 @@ class MapWindow(QWidget):
         self.grid.addWidget(self.search_text_area, 0, 0)
         self.grid.addWidget(self.search_button, 0, 1)
         self.grid.addWidget(self.layer_button, 2, 0)
+        self.grid.addWidget(self.reset_button, 2, 1)
+        self.grid.addWidget(self.addres_line, 3, 0)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_PageUp:
@@ -120,6 +138,13 @@ class MapWindow(QWidget):
         self.s = self.sl[self.curr_s]
         self.getImage()
         self.update_image()
+
+    def resetS(self):
+        self.resetSR = True
+        self.getImage()
+        self.update_image()
+        self.addres_line.setText("")
+        self.search_text_area.setText("")
 
     def closeEvent(self, event):
         os.remove(self.map_file)
