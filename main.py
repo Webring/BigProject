@@ -4,7 +4,7 @@ import sys
 import requests
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QGridLayout, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QGridLayout, QLineEdit, QPushButton, QCheckBox
 
 SCREEN_SIZE = [600, 450]
 STATIC_API = "http://static-maps.yandex.ru/1.x/"
@@ -15,6 +15,7 @@ API_KEY = "40d1649f-0493-4b70-98ba-98533de7710b"
 class MapWindow(QWidget):
     def __init__(self):
         super().__init__()
+        self.doindex = False
         self.resetSR = False
         self.z = 17
         self.sl = ["map", "sat", "sat,skl"]
@@ -36,7 +37,17 @@ class MapWindow(QWidget):
             }
             response = requests.get(GEOCODER_API, params=params).json()
             obj = response["response"]["GeoObjectCollection"]["featureMember"][0]
-            self.addres_line.setText(obj["GeoObject"]["metaDataProperty"]["GeocoderMetaData"]["Address"]["formatted"])
+            self.index = ""
+            self.addres_line_text = obj["GeoObject"]["metaDataProperty"]["GeocoderMetaData"]["Address"]["formatted"]
+            if "postal_code" in (obj["GeoObject"]["metaDataProperty"]["GeocoderMetaData"]["Address"]).keys():
+                self.index = obj["GeoObject"]["metaDataProperty"]["GeocoderMetaData"]["Address"]["postal_code"]
+            if self.doindex:
+                if self.index != "":
+                    self.addres_line.setText(f"{self.addres_line_text}, {self.index}")
+                else:
+                    self.addres_line.setText(self.addres_line_text)
+            else:
+                self.addres_line.setText(self.addres_line_text)
             coords = list(map(float, obj["GeoObject"]["Point"]["pos"].split()))
             self.coords = coords
             self.getImage()
@@ -79,7 +90,7 @@ class MapWindow(QWidget):
 
         self.grid = QGridLayout(self)
 
-        self.search_text_area = QLineEdit()
+        self.search_text_area = QLineEdit("Курган")
 
         self.addres_line = QLineEdit()
         self.addres_line.setReadOnly(True)
@@ -93,6 +104,9 @@ class MapWindow(QWidget):
         self.reset_button = QPushButton("Сброс поискового результата")
         self.reset_button.clicked.connect(self.resetS)
 
+        self.box = QCheckBox("Индекс", self)
+        self.box.stateChanged.connect(self.check)
+
         self.image = QLabel()
         self.image.move(0, 0)
 
@@ -102,6 +116,7 @@ class MapWindow(QWidget):
         self.grid.addWidget(self.layer_button, 2, 0)
         self.grid.addWidget(self.reset_button, 2, 1)
         self.grid.addWidget(self.addres_line, 3, 0)
+        self.grid.addWidget(self.box, 3, 1)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_PageUp:
@@ -145,6 +160,17 @@ class MapWindow(QWidget):
         self.update_image()
         self.addres_line.setText("")
         self.search_text_area.setText("")
+
+    def check(self, state):
+        if state == Qt.Checked:
+            self.doindex = True
+            if not self.resetSR:
+                if self.index != "":
+                    self.addres_line.setText(f"{self.addres_line_text}, {self.index}")
+        else:
+            self.doindex = False
+            if not self.resetSR:
+                self.addres_line.setText(self.addres_line_text)
 
     def closeEvent(self, event):
         os.remove(self.map_file)
