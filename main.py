@@ -24,7 +24,7 @@ class MapWindow(QWidget):
         self.search("Курган")
 
     def search(self, request_text=None):
-        if not request_text:
+        if request_text == None:
             request_text = self.search_text_area.text()
         if self.search_text_area.text() or request_text:
             params = {
