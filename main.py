@@ -22,14 +22,15 @@ class MapWindow(QWidget):
         self.curr_s = 0
         self.s = self.sl[self.curr_s]
         self.coords = []
+        self.coords2 = []
         self.initUI()
         self.search("Курган")
 
     def search(self, request_text=None):
-        self.resetSR = False
         if request_text == None:
             request_text = self.search_text_area.text()
         if self.search_text_area.text() or request_text:
+            self.resetSR = False
             params = {
                 "apikey": API_KEY,
                 "geocode": request_text,
@@ -50,6 +51,7 @@ class MapWindow(QWidget):
                 self.addres_line.setText(self.addres_line_text)
             coords = list(map(float, obj["GeoObject"]["Point"]["pos"].split()))
             self.coords = coords
+            self.coords2 = self.coords[:]
             self.getImage()
             self.update_image()
 
@@ -60,14 +62,15 @@ class MapWindow(QWidget):
                 "z": self.z,
                 "l": self.s
             }
+            response = requests.get(STATIC_API, params=params)
         else:
             params = {
                 "ll": "{},{}".format(*self.coords),
                 "z": self.z,
                 "l": self.s,
-                "pt": f"{self.coords[0]},{self.coords[1]},pm2dol"
+                "pt": f"{self.coords2[0]},{self.coords2[1]},pm2dol"
             }
-        response = requests.get(STATIC_API, params=params)
+            response = requests.get(STATIC_API, params=params)
 
         if not response:
             print("Ошибка выполнения запроса:")
